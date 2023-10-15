@@ -1,0 +1,70 @@
+Query Answer :
+
+1). 
+SELECT DISTINCT c.customerNumber
+FROM customers c
+JOIN orders o ON c.customerNumber = o.customerNumber
+JOIN orderdetails od ON o.orderNumber = od.orderNumber
+JOIN products p ON od.productCode = p.productCode
+WHERE p.productLine = 'Classic Cars'
+GROUP BY c.customerNumber
+HAVING COUNT(p.productLine) > 23;
+
+2).
+DELIMITER //
+CREATE PROCEDURE `copy_ksm_kurs_pajak_to_kurs_pajak`()
+BEGIN
+  DECLARE exit handler for 1062 -- MySQL error code for duplicate key
+  BEGIN
+    ROLLBACK;
+    SIGNAL SQLSTATE '45000'
+    SET MESSAGE_TEXT = 'Data already exists in kurs_pajak. Rolling back changes.';
+  END;
+
+  START TRANSACTION;
+
+  INSERT INTO kurs_pajak (id_ksm_kurs_pajak, kurs_rate, tgl, curr_id) 
+  SELECT id, kurs_rate, input_date, curr_id
+  FROM ksm_kurs_pajak;
+
+  COMMIT;
+END//
+DELIMITER ;
+
+3). 
+CREATE FUNCTION FindSmallestDate(concatenated_dates TEXT)
+RETURNS DATE
+BEGIN
+  DECLARE min_date DATE;
+  DECLARE current_dates DATE;
+  DECLARE date_list TEXT;
+  DECLARE done INT DEFAULT 0;
+  DECLARE cur CHAR(1);
+  DECLARE pos INT DEFAULT 1;
+
+  SET date_list = TRIM(TRAILING ', ' FROM concatenated_dates);
+
+  WHILE NOT done DO
+    SET pos = LOCATE(', ', date_list);
+    IF pos = 0 THEN
+      SET done = 1;
+      SET current_dates = STR_TO_DATE(date_list, '%Y-%m-%d');
+    ELSE
+      SET current_dates = STR_TO_DATE(SUBSTRING(date_list, 1, pos - 1), '%Y-%m-%d');
+      SET date_list = SUBSTRING(date_list, pos + 2);
+    END IF;
+
+    IF min_date IS NULL OR current_dates < min_date THEN
+      SET min_date = current_dates;
+    END IF;
+  END WHILE;
+
+  RETURN min_date;
+END;
+//
+DELIMITER ;
+
+
+intruction query to call function :
+2). CALL copy_ksm_kurs_pajak_to_kurs_pajak();
+3). SELECT FindSmallestDate('2016-04-22, 2016-07-20, 2015-03-29, 2023-07-03') AS smallest_date;
